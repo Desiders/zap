@@ -1,43 +1,20 @@
-use hello::ThreadPool;
-// use std::fs;
-use std::io::prelude::*;
-use std::net::TcpListener;
-use std::net::TcpStream;
-// use std::thread;
-// use std::time::Duration;
+use std::convert::Infallible;
 
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-    let pool = ThreadPool::new(4);
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Request, Response, Server};
 
-    // for stream in listener.incoming().take(2) {
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
-
-        pool.execute(|| {
-            handle_connection(stream);
-        });
-    }
-
-    println!("Shutting down.");
+async fn handle(_: Request<Body>) -> Result<Response<Body>, Infallible> {
+    Ok(Response::new("Hello from Rust!".into()))
 }
 
-fn handle_connection(mut stream: TcpStream) {
-    let mut buffer = [0; 1024];
-    stream.read(&mut buffer).unwrap();
+#[tokio::main(worker_threads = 4)]
+pub async fn main() {
+    let addr = ([127, 0, 0, 1], 7878).into();
 
-
-    let status_line = "HTTP/1.1 200 OK";
-
-    let contents = "HELLO from RUST!";
-
-    let response = format!(
-        "{}\r\nContent-Length: {}\r\n\r\n{}",
-        status_line,
-        contents.len(),
-        contents
-    );
-
-    stream.write_all(response.as_bytes()).unwrap();
-    stream.flush().unwrap();
+    Server::bind(&addr)
+        .serve(make_service_fn(|_conn| async {
+            Ok::<_, Infallible>(service_fn(handle))
+        }))
+        .await
+        .unwrap();
 }
